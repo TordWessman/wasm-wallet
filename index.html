@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head>
+    <link rel="stylesheet" type="text/css" href="/stylez.css?modified=15" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png">
+    <link rel="manifest" href="/favicon/site.webmanifest">
+    <meta charset="utf-8" />
+    <title>Stupid Wallet</title>
+</head>
+
+<body>
+    <script>
+        
+        class TransferModel {
+            constructor(is_chain, blah) {
+
+            }
+        }
+        var session;
+        var divContainers = [];
+        var walletObserver;
+        var isLoading = false;
+
+        function setVisibility(element, visible) {
+            if (visible) { element.style.display = "block"; }
+            else { element.style.display = "none"; }
+        }
+        function show(element_name) { setVisibility(e(element_name), true); } 
+        function hide(element_name) { setVisibility(e(element_name), false); } 
+
+        function uiDisplayTransferView(chain, token) {
+            show("div_transfer");
+
+            e("button_make_transfer").onclick = async function() {
+                if (isLoading) { return; }
+                var element = e("button_make_transfer");
+                setLoadingState(element, true);
+                const res = await session.transfer(token != null ? token["contract_address"] : chain["id"], e("input_transfer_amount").value, e("input_transfer_destination").value);
+                if(res) {
+                    uiUpdateChains(token == null ? null : chain["id"]);
+                }
+                setLoadingState(element, false);
+            }
+        }
+
+        function uiCreateChainRow(chain) {
+            console.log("CHAIN DATA", chain);
+            var tr = document.createElement("tr");
+            tr.id = "chain_" + chain["id"];
+            var td1 = c("td"), td2 = c("td"), td3 = c("td");
+            tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+            var link = c("div"); link.classList.add("small_button");
+            link.innerText = chain["symbol"];
+            td1.appendChild(link);
+            td2.innerText = walletObserver.balance_for(chain["id"]);
+            
+            var transfer = c("div"); transfer.classList.add("small_button"); transfer.innerText = "Transfer"; td3.appendChild(transfer);
+            
+            link.onclick = function() {
+                uiDisplayTokens(chain);
+            }
+
+            transfer.onclick = function () {
+                uiDisplayTransferView(chain, null);
+            }
+
+            return tr;
+        }
+
+        function uiUpdateChains(displayChainId) {
+            var chainsSerialized = walletObserver.chains_serialized();
+
+            e("account_chains_list").innerHTML = "";
+
+            if(chainsSerialized.length > 0) {
+                var chains = JSON.parse(chainsSerialized);
+                var table = document.createElement("table");
+                var tr = c("tr"), td1 = c("td"), td2 = c("td"), td3 = c("td");
+                td1.innerText = "Symbol"; td2.innerText = "Balance", td3.innerText = "Action";
+                tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+                table.appendChild(tr);
+
+                chains.forEach(function (chain, i, v) { 
+                    table.appendChild(uiCreateChainRow(chain));
+
+                    if (displayChainId != null && chain["id"] == displayChainId) {
+                        uiDisplayTokens(chain);
+                    } 
+                })
+                e("account_chains_list").appendChild(table);
+
+            } else {
+                e("account_chains_list").innerText = "No chains added yet...";
+            }
+        }
+
+        function uiDisplayTokens(chain) {
+            hide("account_main");
+            show("div_tokens_container");
+            tokens_div = e("div_tokens");
+            tokens_div.innerHTML = "";
+            
+            header = c("h3");
+            header.innerHTML = chain["symbol"] + " tokens";
+            tokens_div.appendChild(header);
+
+            chain["tokens"].forEach(function (token, i) {
+                var tokens_p = c("p");
+                tokens_p.style.background = "#DDDDDD";
+                tokens_p.innerText = token["symbol"] + " | Balance: " + walletObserver.balance_for(token["contract_address"]) + " ";
+                var transfer = c("div"); transfer.classList.add("small_button"); transfer.innerText = "Transfer"; tokens_p.appendChild(transfer);
+                transfer.onclick = async function() {
+                    uiDisplayTransferView(chain, token);
+                }
+                tokens_div.appendChild(tokens_p)
+            });
+
+            var addTokensDiv = c("div"); tokens_div.appendChild(addTokensDiv);
+            addTokensDiv.style.padding = "50px";
+
+            var h3 = c("h3"), p1 = c("p"); h3.innerText = "Add token"; p1.appendChild(h3); addTokensDiv.appendChild(p1);
+            var input_address = c("input"), p2 = c("p"); input_address.placeholder = "token address (0x...)"; p2.appendChild(input_address); addTokensDiv.appendChild(p2);
+            var input_symbol = c("input"), p3 = c("p"); input_symbol.placeholder = "token symbol"; p3.appendChild(input_symbol); addTokensDiv.appendChild(p3);
+            var input_decimals = c("input"), p4 = c("p"); input_decimals.placeholder = "decimals"; p4.appendChild(input_decimals); addTokensDiv.appendChild(p4);
+            input_decimals.type = "number";
+
+            var button = c("div"), p5 = c("p"); button.innerText = "Add token"; p5.appendChild(button); addTokensDiv.appendChild(p5);
+            button.classList.add("button");
+            button.onclick = async function () {
+
+                if (isLoading) { return; }
+                setLoadingState(button, true);
+                var res = await session.add_token(chain["id"], input_address.value, input_symbol.value, input_decimals.value);
+                if(res) {
+                    uiUpdateChains(chain["id"]);
+                }
+
+                setLoadingState(button, false);
+            }
+        }
+
+        function walletInitialized() {
+                e("account_address").innerText = walletObserver.address();
+                uiUpdateChains();
+        }
+
+        function errorCallback(message) {
+            show("div_error_message");
+            var errorDiv = e("div_error_message");
+            errorDiv.innerText = message;
+            errorDiv.onclick = function() {
+                hide("div_error_message");
+            };
+        }
+
+        function stateChanged(state) {
+            hide("div_error_message");
+            if (state == 2) { uiUpdateAvailableAccounts(); }
+            uiSetup(state);
+        }
+
+        function uiSetup(index) {
+            e("account_name").innerText = walletObserver.account_name();
+            
+            console.log("State changed to:", index, walletObserver);
+            divContainers.forEach(function (divContainer, i) {
+                setVisibility(divContainer, i == index);
+            });
+            
+            hide("div_transfer");
+            if (index != 2) { e("account_address").innerText = ""; }
+            setVisibility(e("button_sign_out"), index != 0);
+            setVisibility(e("div_available_accounts_container"), index != 2);
+            hide("div_tokens_container");
+        }
+
+        function setLoadingState(element, on) {
+            isLoading = on;
+            if (isLoading) {
+                element.classList.add("gradient2");
+            } else {
+                element.classList.remove("gradient2");
+            }
+        }
+    function e(id) {
+        return document.getElementById(id);
+    }
+    function c(type) {
+        return document.createElement(type);
+    }
+
+    function uiUpdateAvailableAccounts() {
+        var container = e("div_available_accounts");
+        container.innerHTML = "";
+        
+        walletObserver.available_accounts().split(";").forEach(function (name, i) {
+            var p = c("p"); var div = c("div"); p.appendChild(div); container.appendChild(p);
+            div.classList.add("small_button");
+            div.innerText = name;
+            div.onclick = function() {
+                e("account_name").innerText = name;
+                session.prepare_sign_in(name);
+            }
+        });
+    }
+
+    </script>
+    <script type="module">
+        import init, { initialize_stuff, Session, SessionState, Wazzaaap } from "./pkg/wasm_wallet.js?4211";
+        init().then(() => {
+            initialize_stuff();
+            walletObserver = Wazzaaap.new();
+            session = Session.new(walletObserver, document.URL);
+            uiUpdateAvailableAccounts();
+            
+            //session.clear();
+            divContainers = [e("div_account_create"), 
+                             e("div_account_sign_in"), 
+                             e("div_account")];
+            
+            uiSetup(session.state());
+            
+            e("input_mnemonic").value = "";
+            e("button_generate_mnemonic").onclick = function() {
+                e("input_mnemonic").value = session.random_mnemonic();
+            }
+
+            e("button_create_account").onclick = async function(element) {
+                if (isLoading) { return; }
+                var element = e("button_create_account");
+
+                setLoadingState(element, true);
+                const res = await session.create_user(e("input_account_name").value, e("input_password_create").value, e("input_mnemonic").value);
+                setLoadingState(element, false);
+            };
+
+            e("button_sign_in").onclick = async function () {
+                if (isLoading) { return; }
+                var element = e("button_sign_in");
+
+                setLoadingState(element, true);
+                const res = await session.sign_in(session.account_name(), e("input_password_sign_in").value);
+                if (res) {
+                    uiUpdateChains();
+                }
+                setLoadingState(element, false);
+            };
+
+            e("button_add_chain").onclick = async function () {
+                if (isLoading) { return; }
+
+                var element = e("button_add_chain");
+                setLoadingState(element, true);
+                const res = await session.add_chain(e("input_add_chain_rpc").value);
+                if(res) {  
+                    uiUpdateChains();
+                }
+                setLoadingState(element, false);
+            };
+
+            e("button_sign_out").onclick = function() {
+                session.sign_out();
+            }
+        });
+    </script>
+<h1><div id="account_name"></div></h1>
+
+<div id="menu_container" style="text-align: left; padding: 10px; border-color: black; border-width: 1px;">
+    <p><div id="account_address"></div></p>
+    <p><div id="button_sign_out" class="small_button">Sign Out</div></p>
+
+    <div id="account_chains_list"></div>
+    <div id="div_tokens_container" style="display: none;">
+        <div id="div_tokens"></div>
+    </div>
+    <div id="div_available_accounts_container">
+        <h3>Available accounts</h3>
+        <div id="div_available_accounts"></div>
+    </div>
+</div>
+<div id="div_account_create">
+    <h2>Create account</h2>
+    <p><input id="input_account_name" placeholder="Account Name"/></p>
+    <p><input id="input_password_create" placeholder="Password" type="password"/></p>
+    <p>
+        <input id="input_mnemonic" placeholder="Mnemonic phrase" value=""/>
+        <div id="button_generate_mnemonic" class="button">Generate Mnemonic</div>
+    </p>
+    <p><div id="button_create_account" class="button">Save</div></p>
+</div>
+
+<div id="div_account_sign_in">
+    <h3>Sign in</h3>
+    <p><input id="input_password_sign_in" placeholder="Password" type="password" value="mamma"/></p>
+    <p><div id="button_sign_in" class="button">Sign in</div></p>
+</div>
+
+<div id="div_account">
+    
+    <p>
+        <div id="account_main" style="display: block;"> 
+            <h3>Add Chain</h3>
+            <p><input id="input_add_chain_rpc" placeholder="https://rpc-url.com" /></p>
+            <p>
+            <div id="button_add_chain" class="button">Add Chain</div>
+            </p>
+        </div>
+    </p>
+    
+</div>
+<div id="div_transfer" style="display: block;">
+
+    <p><input id="input_transfer_destination" placeholder="Destination address (0x123...)" value="" /></p>
+    <p><input id="input_transfer_amount" placeholder="Amount" value="" /></p>
+    <p><div id="button_make_transfer" class="button">Make transfer</div></p>
+</div>
+
+
+<div id="div_error_message"></div>
+</body>
+
+</html>

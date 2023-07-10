@@ -1,0 +1,106 @@
+html,
+body {
+    margin: 0;
+    padding: 0
+}
+
+body {
+    font: 76% arial, sans-serif;
+    text-align: center;
+}
+
+p {
+    margin: 0 10px 10px
+}
+
+a {
+    padding: 5px;
+    text-decoration: none;
+    color: #000000;
+}
+
+input {
+    width: 300px;
+}
+
+div {
+    border: #000000;
+    border-width: 1px;
+    border-color: #000000;
+}
+
+.button_small {
+    cursor: pointer;
+    background-color: #428d45;
+    border: none;
+    color: white;
+    padding: 4px 5px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 8px;
+}
+
+.button {
+    cursor: pointer;
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    /*padding: 4px 82px; */
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    width: 300px;
+ }
+
+ .small_button {
+    cursor: pointer;
+    background-color: #4CAF50;
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 12px;
+    width: 100px;
+ }
+
+div#div_error_message {
+    background-color: #FF3300;
+    color: #FFFF00;
+    display: none;
+}
+
+div#wallet_address {
+    color: #3377FF;
+    display: none;
+    font-size: 30px;
+}
+
+.link {
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.gradient2 {
+    background: linear-gradient(-45deg, #AAFFAA, #129F30);
+    background-size: 400% 400%;
+    animation: gradient 3s ease infinite;
+    /*height: 100vh; */
+}
+
+@keyframes gradient {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
